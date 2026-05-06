@@ -1,51 +1,38 @@
-# Feed de Publicaciones
+Refactorización: Integración de Moderación Legada usando el Patrón Adapter
 
-Este proyecto implementa un feed social sencillo, sin usuarios ni autenticación, centrado en la interacción entre publicaciones, likes y comentarios. La aplicación está pensada para simular una plataforma de contenido visual con lógica de negocio realista pero acotada.
+Problemas Identificados
 
-## Requerimientos
+Durante la revisión del código del repositorio, se identificaron los siguientes problemas de diseño y arquitectura relacionados con el servicio de moderación de publicaciones (`legacy-moderation.client.ts`):
 
-- Docker
+1. Interfaz Inconsistente (Código Legado):
+   El cliente de moderación existente retornaba múltiples tipos de datos de forma inconsistente (`string`, `number`, `object`), dependiendo de la regla de negocio que se activara. Por ejemplo:
+   - Retornaba `"BLOCK"` si encontraba palabras prohibidas.
+   - Retornaba `{ pass: true, reason: "legacy-rule-3" }` para ciertas validaciones.
+   - Retornaba `1` u `"OK"` en otros casos.
 
-## Resumen funcional
+2. Alto Acoplamiento en la Lógica de Negocio:
+   Si se usaba el cliente legado directamente, el servicio principal (`PostsService`) iba a estar fuertemente acoplado a las particularidades de esta API antigua, obligando a manejar toda la lógica condicional de tipos mixtos en el flujo principal de creación de publicaciones.
 
-El sistema permite crear publicaciones con imagen, texto y descripción, y mostrarlas en un feed central. Cada publicación puede recibir likes y comentarios, y esas interacciones modifican cómo se percibe su importancia dentro del feed.
+3. Falta de Abstracción:
+   No existía un contrato claro sobre lo que el sistema esperaba de un "Moderador de Contenido", dificultando la posibilidad de cambiar de proveedor en el futuro o realizar pruebas unitarias (Testing) a través de mocks.
 
-El comportamiento general del producto gira alrededor de tres ideas:
+4. Inconsistencia en los DTOs:
+   Se estaba intentando enviar a moderación un campo genérico `content` que no existía en `CreatePostDto`, el cual realmente estructuraba la información en `title` y `description`.
 
-- **contenido**: las publicaciones son la unidad principal del sistema,
-- **interacción**: likes y comentarios enriquecen cada publicación,
-- **priorización**: el feed puede cambiar de orden según distintos criterios de relevancia.
+Solución Aplicada
 
-## Lógica de negocio principal
+Para aislar el problema y estandarizar la comunicación en nuestro sistema, implementamos el **Patrón Estructural Adapter (Adaptador)**. 
 
-La lógica del sistema no solo guarda datos, también construye una vista enriquecida del feed. Para cada publicación se calcula información derivada, como la cantidad de interacciones y una puntuación de relevancia que combina actividad reciente con volumen de participación.
+1. Definición de la Interfaz Objetivo (Target)
+Creamos la interfaz `ContentModerator` (`src/posts/moderation.interface.ts`) que define un contrato limpio y estandarizado. Ahora, cualquier sistema de moderación debe simplemente recibir un texto y devolver un `Promise<boolean>`.
 
-Además, antes de persistir comentarios se aplica una validación/moderación para filtrar contenido problemático. El sistema también ejecuta efectos operativos cuando se crean interacciones (por ejemplo trazas y procesos internos de recálculo), reflejando un flujo típico de aplicaciones de contenido.
+2. Creación del Adaptador (Adapter)
+Desarrollamos la clase `LegacyModerationAdapter` que implementa la interfaz `ContentModerator`. Su única responsabilidad es:
+- Llamar a la API legada subyacente (`legacyModerationApi.review`).
+- "Traducir" o normalizar todas las respuestas inconsistentes (`"BLOCK"`, `"OK"`, `1`, `{ pass: true }`) a un simple valor booleano (`true` para contenido seguro, `false` para contenido bloqueado).
 
-## Contexto técnico
+3. Inyección de Dependencias (Dependency Inversion)
+Refactorizamos `PostsService` para que dependa únicamente de la abstracción (`CONTENT_MODERATOR_TOKEN`), ignorando por completo la implementación del cliente legado. Configuramos el módulo de NestJS (`PostsModule`) para inyectar nuestro Adapter cuando se requiera dicho token.
 
-La solución está construida con NestJS en backend, Prisma ORM y SQLite como almacenamiento local.
-
-La base de datos es fija en `sqlite.db`
-
-## Ejecución:
-
-Para levantar todo el sistema con Docker:
-
-1. `make setup`
-2. `make run`
-
-Este comando construye la imagen, instala dependencias dentro del contenedor, aplica migraciones Prisma, genera el cliente y arranca NestJS en modo watch.
-
-En este flujo, los artefactos de compilación y cache de paquetes se mantienen dentro de volúmenes Docker para no ensuciar el directorio del proyecto.
-
-La aplicación queda disponible en:
-
-- `http://localhost:3000`
-- `http://localhost:3000/docs`
-- `http://localhost:5555` (Prisma Studio - Database Manager)
-
-Comandos útiles:
-
-- `make stop` para detener el contenedor
-- `make logs` para ver logs en tiempo real
+4. Corrección del Flujo de Datos
+Actualizamos el servicio para que lea correctamente los campos validados por class-validator (`dto.title` y `dto.description`) y aplique la moderación a los textos correctos.
