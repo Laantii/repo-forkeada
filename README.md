@@ -49,3 +49,48 @@ Comandos útiles:
 
 - `make stop` para detener el contenedor
 - `make logs` para ver logs en tiempo real
+
+
+
+🧪 Implementación y validación del sistema (trabajo realizado)
+
+Durante esta etapa del proyecto se trabajó en la implementación, corrección y validación del backend del sistema de feed social. El desarrollo se enfocó en asegurar el correcto funcionamiento de las principales funcionalidades del sistema y en verificar la lógica de negocio mediante pruebas reales.
+
+🔧 Funcionalidades implementadas y verificadas
+
+Se completó y validó el funcionamiento de los siguientes módulos:
+
+Creación de publicaciones mediante POST /api/posts
+Sistema de likes con peso asociado mediante POST /api/posts/:id/likes
+Obtención del feed de publicaciones mediante GET /api/posts/feed
+Cálculo dinámico de métricas del sistema:
+Cantidad total de likes (likesCount)
+Cantidad de comentarios (commentsCount)
+Score de relevancia (relevanceScore)
+Generación de metadata asociada a cada publicación
+⚙️ Ordenamiento del feed
+
+Se validó el comportamiento del feed según distintos modos de ordenamiento:
+
+latest: ordenado por fecha de creación
+mostLiked: ordenado por cantidad de likes
+mostCommented: ordenado por cantidad de comentarios
+relevance: ordenado por score de relevancia calculado
+
+Este comportamiento implementa de forma implícita un patrón de diseño tipo Strategy, donde el criterio de ordenamiento cambia dinámicamente según el parámetro mode.
+
+🧪 Pruebas realizadas
+
+Las pruebas se realizaron utilizando herramientas como cURL y Swagger, validando:
+
+Creación correcta de publicaciones
+Persistencia de datos en la base de datos SQLite
+Funcionamiento del sistema de likes y su impacto en el feed
+Cambios dinámicos en el orden del feed según el modo seleccionado
+📊 Resultado obtenido
+
+El sistema responde correctamente a todas las operaciones implementadas, reflejando los cambios en tiempo real dentro del feed y validando la coherencia de la lógica de negocio.
+
+🧠 Conclusión técnica
+
+El sistema implementa una lógica de comportamiento dinámico equivalente al patrón Strategy, aplicado en el ordenamiento del feed. Esto permite modificar el comportamiento del sistema sin alterar su estructura principal, facilitando su escalabilidad.
